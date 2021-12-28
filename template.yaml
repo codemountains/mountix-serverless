@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Rust AWS Serverless API
+Transform: AWS::Serverless-2016-10-31
+Globals:
+    Function:
+        Timeout: 30
+    Api:
+        OpenApiVersion: 3.0.2
+        Cors:
+            AllowMethods: "'OPTIONS,GET'"
+            AllowHeaders: "'Origin, Authorization, Accept, Content-Type'"
+            AllowOrigin: "'*'"
+
+Resources:
+    MountixServerFunction:
+        Type: AWS::Serverless::Function
+        Properties:
+            FunctionName: !Sub ${AWS::StackName}-lambda-function
+            Description: Mountix Server Lambda Function
+            CodeUri: lambda.zip
+            Runtime: provided.al2
+            Handler: bootstrap.is.real.handler
+            MemorySize: 1024
+            Environment:
+                Variables:
+                    RUST_BACKTRACE: 1
+            Events:
+                Root:
+                    Type: Api
+                    Properties:
+                        Path: /
+                        Method: get
+                Mountains:
+                    Type: Api
+                    Properties:
+                        Path: /mountains
+                        Method: get
+                MountainId:
+                    Type: Api
+                    Properties:
+                        Path: /mountains/{id}
+                        Method: get
+
+Outputs:
+    MountixServerApi:
+        Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+    MountixServerFunction:
+        Value: !GetAtt MountixServerFunction.Arn
+    MountixServerFunctionIamRole:
+        Value: !GetAtt MountixServerFunctionRole.Arn
