@@ -16,7 +16,7 @@ pub enum ValueType {
     Number,
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Mountain {
     pub(crate) id: u32,
@@ -29,7 +29,7 @@ pub struct Mountain {
     tags: Vec<String>,
 }
 
-#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, PartialOrd, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Location {
     latitude: f64,
