@@ -17,12 +17,24 @@ pub struct SearchCondition {
     pub value: String,
 }
 
+pub struct RangeCondition {
+    pub offset: usize,
+    pub limit: Option<usize>,
+}
+
 struct MountainData {
     index: String,
     attribute_data_list: Vec<HashMap<String, AttributeValue>>,
 }
 
-pub async fn get_all_mountains(client: &Client) -> Result<Vec<Mountain>, ()> {
+pub struct SearchedMountainResult {
+    pub mountains: Vec<Mountain>,
+    pub total: usize,
+    pub offset: usize,
+    pub limit: Option<usize>,
+}
+
+pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition) -> Result<SearchedMountainResult, ()> {
     let command = ScanCommand {
         table: "Mountains".to_string(),
     };
@@ -62,6 +74,9 @@ pub async fn get_all_mountains(client: &Client) -> Result<Vec<Mountain>, ()> {
                 }
             }
 
+            // offset, limitによる絞り込み
+            // let refined_mountain_data_list = refine_mountain_data_list(&mountain_data_list, range_condition);
+
             let mut mountains: Vec<Mountain> = Vec::new();
             for mountain_data in mountain_data_list {
                 // let mapper = MountainMapper {
@@ -74,7 +89,19 @@ pub async fn get_all_mountains(client: &Client) -> Result<Vec<Mountain>, ()> {
             if mountains.len() > 0 {
                 mountains.sort_by(|a, b| a.id.cmp(&b.id));
             }
-            Ok(mountains)
+
+            // offset, limitによる絞り込み
+            match refine_mountains(&mountains, range_condition) {
+                Ok(refined_mountain_result) => {
+                    Ok(SearchedMountainResult {
+                        mountains: refined_mountain_result.mountains,
+                        total: refined_mountain_result.total,
+                        offset: refined_mountain_result.offset,
+                        limit: refined_mountain_result.limit,
+                    })
+                }
+                Err(_) => Err(())
+            }
         }
         Err(_) => Err(()),
     }
@@ -101,7 +128,8 @@ pub async fn get_mountain_by_id(client: &Client, id: String) -> Result<Mountain,
 pub async fn search_mountains(
     client: &Client,
     search_conditions: Vec<SearchCondition>,
-) -> Result<Vec<Mountain>, ()> {
+    range_condition: RangeCondition,
+) -> Result<SearchedMountainResult, ()> {
     // 各検索結果を格納する
     let mut pref_searched_list: Vec<String> = Vec::new();
     let mut tag_searched_list: Vec<String> = Vec::new();
@@ -193,12 +221,18 @@ pub async fn search_mountains(
         }
     }
 
-    // if mountains.len() > 0 {
-    //     Ok(mountains)
-    // } else {
-    //     Err(())
-    // }
-    Ok(mountains)
+    // offset, limitによる絞り込み
+    match refine_mountains(&mountains, range_condition) {
+        Ok(refined_mountain_result) => {
+            Ok(SearchedMountainResult {
+                mountains: refined_mountain_result.mountains,
+                total: refined_mountain_result.total,
+                offset: refined_mountain_result.offset,
+                limit: refined_mountain_result.limit,
+            })
+        }
+        Err(_) => Err(())
+    }
 }
 
 fn get_duplication_list(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
@@ -211,4 +245,35 @@ fn get_duplication_list(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
         }
     }
     result_list
+}
+
+struct RefinedMountainResult {
+    mountains: Vec<Mountain>,
+    total: usize,
+    offset: usize,
+    limit: Option<usize>,
+}
+
+fn refine_mountains(mountains: &Vec<Mountain>, range_condition: RangeCondition) -> Result<RefinedMountainResult, String> {
+    let range_from = range_condition.offset;
+    let mut range_to = mountains.len() as usize;
+    match range_condition.limit {
+        Some(range_condition_limit) => {
+            if range_to > range_condition_limit + range_from {
+                range_to = range_condition_limit + range_from;
+            }
+        },
+        None => {}
+    }
+
+    if range_from > range_to {
+        return Err("offsetの値が不正です。".to_string());
+    }
+
+    Ok(RefinedMountainResult {
+        mountains: mountains[range_from..range_to].to_vec(),
+        total: mountains.len(),
+        offset: range_condition.offset,
+        limit: range_condition.limit,
+    })
 }

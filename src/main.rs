@@ -8,7 +8,7 @@ use mountix_serverless::models::{
     PrefectureBaseMapper, PrefectureMapper, TagBaseMapper, TagMapper,
 };
 use mountix_serverless::services;
-use mountix_serverless::services::{SearchCondition, SearchType};
+use mountix_serverless::services::{SearchCondition, SearchType, RangeCondition};
 use serde::{Deserialize, Serialize};
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -64,9 +64,14 @@ async fn get_response(event: Request, _: Context) -> Result<impl IntoResponse, E
         },
         ResponseType::MountainList => match search_mountains(&client, &query_params).await {
             Ok(result) => {
+                let mut limit = "null".to_string();
+                if let Some(l) = result.limit {
+                    limit = l.to_string();
+                }
+
                 json = format!(
-                    r#"{{"mountains": {}, "total": {}}}"#,
-                    result.mountains_json, result.total
+                    r#"{{"mountains": {}, "total": {}, "offset": {}, "limit": {}}}"#,
+                    result.mountains_json, result.total, result.offset, limit
                 );
             }
             Err(e) => {
@@ -123,7 +128,9 @@ async fn get_mountain(client: &Client, id: &String) -> Result<String, ()> {
 
 struct SearchedResult {
     mountains_json: String,
-    total: u32,
+    total: usize,
+    offset: usize,
+    limit: Option<usize>,
 }
 
 async fn search_mountains(
@@ -131,20 +138,6 @@ async fn search_mountains(
     query_params: &StrMap,
 ) -> Result<SearchedResult, Vec<String>> {
     let simple_err_message_list = vec!["エラーが発生しました。".to_string()];
-
-    // クエリパラメータが存在しない場合、scanを実行
-    if query_params.is_empty() {
-        return match services::get_all_mountains(&client).await {
-            Ok(mountains) => match serde_json::to_string_pretty(&mountains) {
-                Ok(result) => Ok(SearchedResult {
-                    mountains_json: result,
-                    total: mountains.len() as u32,
-                }),
-                Err(_) => Err(simple_err_message_list),
-            },
-            Err(_) => Err(simple_err_message_list),
-        };
-    }
 
     let mut search_conditions: Vec<SearchCondition> = Vec::new();
     let mut err_message_list: Vec<String> = Vec::new();
@@ -183,10 +176,6 @@ async fn search_mountains(
         }
     }
 
-    if !err_message_list.is_empty() {
-        return Err(err_message_list);
-    }
-
     // 検索条件: 山名
     if let Some(mountain_name) = query_params.get("name") {
         search_conditions.push(SearchCondition {
@@ -195,13 +184,70 @@ async fn search_mountains(
         });
     }
 
-    match services::search_mountains(&client, search_conditions).await {
-        Ok(mountains) => match serde_json::to_string_pretty(&mountains) {
-            Ok(result) => Ok(SearchedResult {
-                mountains_json: result,
-                total: mountains.len() as u32,
-            }),
+    // offset, limit 値チェック
+    let mut offset_value = 0 as usize;
+    if let Some(offset) = query_params.get("offset") {
+        if let Ok(offset_temp) = offset.to_string().parse::<usize>() {
+            offset_value = offset_temp;
+        } else {
+            err_message_list.push("offsetは0以上の整数を指定してください。".to_string());
+        }
+    }
+
+    let mut limit_value: Option<usize> = None;
+    if let Some(limit) = query_params.get("limit") {
+        if let Ok(limit_temp) = limit.to_string().parse::<usize>() {
+            if limit_temp > 0 {
+                limit_value = Some(limit_temp);
+            } else {
+                err_message_list.push("limitは1以上の整数を指定してください。".to_string());
+            }
+        } else {
+            err_message_list.push("limitは1以上の整数を指定してください。".to_string());
+        }
+    }
+
+    if !err_message_list.is_empty() {
+        return Err(err_message_list);
+    }
+
+    // offset and limit
+    let range_condition =  RangeCondition {
+        offset: offset_value,
+        limit: limit_value,
+    };
+
+    // 検索条件が存在しない場合、scanを実行する
+    if search_conditions.is_empty() {
+        return match services::get_all_mountains(&client, range_condition).await {
+            Ok(searched_mountain_result) => {
+                match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
+                    Ok(result) => Ok(SearchedResult {
+                        mountains_json: result,
+                        total: searched_mountain_result.total,
+                        offset: searched_mountain_result.offset,
+                        limit: searched_mountain_result.limit,
+                    }),
+                    Err(_) => Err(simple_err_message_list),
+                }
+            }
             Err(_) => Err(simple_err_message_list),
+        };
+    }
+
+    match services::search_mountains(&client, search_conditions, range_condition).await {
+        Ok(searched_mountain_result) => {
+            match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
+                Ok(result) => {
+                    Ok(SearchedResult {
+                        mountains_json: result,
+                        total: searched_mountain_result.total,
+                        offset: searched_mountain_result.offset,
+                        limit: searched_mountain_result.limit,
+                    })
+                },
+                Err(_) => Err(simple_err_message_list),
+            }
         },
         Err(_) => Err(simple_err_message_list),
     }
