@@ -74,14 +74,8 @@ pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition)
                 }
             }
 
-            // offset, limitによる絞り込み
-            // let refined_mountain_data_list = refine_mountain_data_list(&mountain_data_list, range_condition);
-
             let mut mountains: Vec<Mountain> = Vec::new();
             for mountain_data in mountain_data_list {
-                // let mapper = MountainMapper {
-                //     data: mountain_data.attribute_data_list,
-                // };
                 let mapper = MountainMapper::new(mountain_data.attribute_data_list);
                 mountains.push(mapper.to_mountain());
             }
@@ -117,7 +111,6 @@ pub async fn get_mountain_by_id(client: &Client, id: String) -> Result<Mountain,
 
     match query(client, command).await {
         Ok(response) => {
-            // let mapper = MountainMapper { data: response };
             let mapper = MountainMapper::new(response);
             Ok(mapper.to_mountain())
         }
@@ -134,6 +127,8 @@ pub async fn search_mountains(
     let mut pref_searched_list: Vec<String> = Vec::new();
     let mut tag_searched_list: Vec<String> = Vec::new();
     let mut name_searched_list: Vec<String> = Vec::new();
+    let mut kana_searched_list: Vec<String> = Vec::new();
+
 
     for condition in search_conditions {
         let command = QueryCommand {
@@ -148,6 +143,15 @@ pub async fn search_mountains(
             index: Some("DataType_Id_Index".to_string()),
             key: "DataType".to_string(),
             value: "Name".to_string(),
+            filter_key: "DataValue".to_string(),
+            filter_value: condition.value.to_string(),
+        };
+
+        let filter_kana_command = QueryFilterCommand {
+            table: "Mountains".to_string(),
+            index: Some("DataType_Id_Index".to_string()),
+            key: "DataType".to_string(),
+            value: "NameKana".to_string(),
             filter_key: "DataValue".to_string(),
             filter_value: condition.value.to_string(),
         };
@@ -173,14 +177,39 @@ pub async fn search_mountains(
                 }
                 Err(_) => {}
             },
-            SearchType::Name => match query_index_filter(client, filter_command).await {
-                Ok(response) => {
-                    for item in response {
-                        let id = get_value(&item, &key, ValueType::Number);
-                        name_searched_list.push(id);
+            SearchType::Name => {
+                match query_index_filter(client, filter_command).await {
+                    Ok(response) => {
+                        for item in response {
+                            let id = get_value(&item, &key, ValueType::Number);
+                            name_searched_list.push(id);
+                        }
                     }
+                    Err(_) => {}
                 }
-                Err(_) => {}
+                match query_index_filter(client, filter_kana_command).await {
+                    Ok(response) => {
+                        for item in response {
+                            if name_searched_list.len() > 0 {
+                                for n in &name_searched_list {
+                                    let id = get_value(&item, &key, ValueType::Number);
+                                    if id != n.to_string() {
+                                        kana_searched_list.push(id);
+                                    }
+                                }
+                            }
+                            else {
+                                let id = get_value(&item, &key, ValueType::Number);
+                                kana_searched_list.push(id);
+                            }
+                        }
+
+                        for k in &kana_searched_list {
+                            name_searched_list.push(k.to_string());
+                        }
+                    }
+                    Err(_) => {}
+                }
             },
         }
     }
