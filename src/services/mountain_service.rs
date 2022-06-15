@@ -34,7 +34,7 @@ pub struct SearchedMountainResult {
     pub limit: Option<usize>,
 }
 
-pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition) -> Result<SearchedMountainResult, ()> {
+pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition, sort_key: &String) -> Result<SearchedMountainResult, ()> {
     let command = ScanCommand {
         table: "Mountains".to_string(),
     };
@@ -80,8 +80,9 @@ pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition)
                 mountains.push(mapper.to_mountain());
             }
 
+            // sorting
             if mountains.len() > 0 {
-                mountains.sort_by(|a, b| a.id.cmp(&b.id));
+                sort_mountains(&mut mountains, sort_key);
             }
 
             // offset, limitによる絞り込み
@@ -122,6 +123,7 @@ pub async fn search_mountains(
     client: &Client,
     search_conditions: Vec<SearchCondition>,
     range_condition: RangeCondition,
+    sort_key: &String
 ) -> Result<SearchedMountainResult, ()> {
     // 各検索結果を格納する
     let mut pref_searched_list: Vec<String> = Vec::new();
@@ -250,6 +252,11 @@ pub async fn search_mountains(
         }
     }
 
+    // sorting
+    if mountains.len() > 0 {
+        sort_mountains(&mut mountains, sort_key);
+    }
+
     // offset, limitによる絞り込み
     match refine_mountains(&mountains, range_condition) {
         Ok(refined_mountain_result) => {
@@ -305,4 +312,30 @@ fn refine_mountains(mountains: &Vec<Mountain>, range_condition: RangeCondition) 
         offset: range_condition.offset,
         limit: range_condition.limit,
     })
+}
+
+fn sort_mountains(mountains: &mut Vec<Mountain>, sort_key: &String) {
+    match sort_key.as_str() {
+        "id.asc" => {
+            mountains.sort_by(|a, b| a.id.cmp(&b.id));
+        },
+        "id.desc" => {
+            mountains.sort_by(|a, b| b.id.cmp(&a.id));
+        },
+        "elevation.asc" => {
+            mountains.sort_by(|a, b| a.elevation.cmp(&b.elevation));
+        }
+        "elevation.desc" => {
+            mountains.sort_by(|a, b| b.elevation.cmp(&a.elevation));
+        }
+        "name.asc" => {
+            mountains.sort_by(|a, b| a.name_kana.cmp(&b.name_kana));
+        }
+        "name.desc" => {
+            mountains.sort_by(|a, b| b.name_kana.cmp(&a.name_kana));
+        }
+        _ => {
+            mountains.sort_by(|a, b| a.id.cmp(&b.id));
+        }
+    }
 }

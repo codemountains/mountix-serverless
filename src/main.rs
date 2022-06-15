@@ -207,6 +207,23 @@ async fn search_mountains(
         }
     }
 
+    // sort
+    let mut sort_key = "id".to_string();
+    if let Some(sort) = query_params.get("sort") {
+        let mut is_invalid_sort_value = true;
+        let chk_keys = ["id.asc", "id.desc", "elevation.asc", "elevation.desc", "name.asc", "name.desc"];
+        for key in chk_keys {
+            let s_key = sort.to_string();
+            if s_key == key.to_string() {
+                sort_key = s_key;
+                is_invalid_sort_value = false;
+            }
+        }
+        if is_invalid_sort_value {
+            err_message_list.push("不正なソート指定です。".to_string());
+        }
+    }
+
     if !err_message_list.is_empty() {
         return Err(err_message_list);
     }
@@ -219,7 +236,7 @@ async fn search_mountains(
 
     // 検索条件が存在しない場合、scanを実行する
     if search_conditions.is_empty() {
-        return match services::get_all_mountains(&client, range_condition).await {
+        return match services::get_all_mountains(&client, range_condition, &sort_key).await {
             Ok(searched_mountain_result) => {
                 match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
                     Ok(result) => Ok(SearchedResult {
@@ -235,7 +252,7 @@ async fn search_mountains(
         };
     }
 
-    match services::search_mountains(&client, search_conditions, range_condition).await {
+    match services::search_mountains(&client, search_conditions, range_condition, &sort_key).await {
         Ok(searched_mountain_result) => {
             match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
                 Ok(result) => {
