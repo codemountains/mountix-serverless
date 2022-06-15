@@ -207,6 +207,23 @@ async fn search_mountains(
         }
     }
 
+    // sort
+    let mut sort_key = "id".to_string();
+    if let Some(sort) = query_params.get("sort") {
+        let mut is_invalid_sort_value = true;
+        let chk_keys = ["id.asc", "id.desc", "elevation.asc", "elevation.desc", "name.asc", "name.desc"];
+        for key in chk_keys {
+            let s_key = sort.to_string();
+            if s_key == key.to_string() {
+                sort_key = s_key;
+                is_invalid_sort_value = false;
+            }
+        }
+        if is_invalid_sort_value {
+            err_message_list.push("不正なソート指定です。".to_string());
+        }
+    }
+
     if !err_message_list.is_empty() {
         return Err(err_message_list);
     }
