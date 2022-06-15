@@ -21,10 +21,10 @@ pub enum ValueType {
 pub struct Mountain {
     pub(crate) id: u32,
     name: String,
-    name_kana: String,
+    pub name_kana: String,
     area: String,
     prefectures: Vec<String>,
-    elevation: u32,
+    pub elevation: u32,
     location: Location,
     tags: Vec<String>,
 }

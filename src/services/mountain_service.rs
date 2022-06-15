@@ -34,7 +34,7 @@ pub struct SearchedMountainResult {
     pub limit: Option<usize>,
 }
 
-pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition) -> Result<SearchedMountainResult, ()> {
+pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition, sort_key: &String) -> Result<SearchedMountainResult, ()> {
     let command = ScanCommand {
         table: "Mountains".to_string(),
     };
@@ -80,8 +80,9 @@ pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition)
                 mountains.push(mapper.to_mountain());
             }
 
+            // sorting
             if mountains.len() > 0 {
-                mountains.sort_by(|a, b| a.id.cmp(&b.id));
+                sort_mountains(&mut mountains, sort_key);
             }
 
             // offset, limitによる絞り込み
@@ -122,6 +123,7 @@ pub async fn search_mountains(
     client: &Client,
     search_conditions: Vec<SearchCondition>,
     range_condition: RangeCondition,
+    sort_key: &String
 ) -> Result<SearchedMountainResult, ()> {
     // 各検索結果を格納する
     let mut pref_searched_list: Vec<String> = Vec::new();
@@ -248,6 +250,11 @@ pub async fn search_mountains(
             }
             Err(_) => {}
         }
+    }
+
+    // sorting
+    if mountains.len() > 0 {
+        sort_mountains(&mut mountains, sort_key);
     }
 
     // offset, limitによる絞り込み

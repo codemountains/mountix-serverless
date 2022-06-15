@@ -236,7 +236,7 @@ async fn search_mountains(
 
     // 検索条件が存在しない場合、scanを実行する
     if search_conditions.is_empty() {
-        return match services::get_all_mountains(&client, range_condition).await {
+        return match services::get_all_mountains(&client, range_condition, &sort_key).await {
             Ok(searched_mountain_result) => {
                 match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
                     Ok(result) => Ok(SearchedResult {
@@ -252,7 +252,7 @@ async fn search_mountains(
         };
     }
 
-    match services::search_mountains(&client, search_conditions, range_condition).await {
+    match services::search_mountains(&client, search_conditions, range_condition, &sort_key).await {
         Ok(searched_mountain_result) => {
             match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
                 Ok(result) => {
