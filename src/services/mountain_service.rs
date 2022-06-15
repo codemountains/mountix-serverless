@@ -306,3 +306,29 @@ fn refine_mountains(mountains: &Vec<Mountain>, range_condition: RangeCondition) 
         limit: range_condition.limit,
     })
 }
+
+fn sort_mountains(mountains: &mut Vec<Mountain>, sort_key: &String) {
+    match sort_key.as_str() {
+        "id.asc" => {
+            mountains.sort_by(|a, b| a.id.cmp(&b.id));
+        },
+        "id.desc" => {
+            mountains.sort_by(|a, b| b.id.cmp(&a.id));
+        },
+        "elevation.asc" => {
+            mountains.sort_by(|a, b| a.elevation.cmp(&b.elevation));
+        }
+        "elevation.desc" => {
+            mountains.sort_by(|a, b| b.elevation.cmp(&a.elevation));
+        }
+        "name.asc" => {
+            mountains.sort_by(|a, b| a.name_kana.cmp(&b.name_kana));
+        }
+        "name.desc" => {
+            mountains.sort_by(|a, b| b.name_kana.cmp(&a.name_kana));
+        }
+        _ => {
+            mountains.sort_by(|a, b| a.id.cmp(&b.id));
+        }
+    }
+}
