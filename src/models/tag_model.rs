@@ -16,6 +16,7 @@ impl TagBaseMapper for TagMapper {
         let prefix = "Tag_".to_string();
         match self.key {
             1 => Ok(format!("{}{}", prefix, "百名山".to_string())),
+            2 => Ok(format!("{}{}", prefix, "二百名山".to_string())),
             _ => Err(()),
         }
     }
