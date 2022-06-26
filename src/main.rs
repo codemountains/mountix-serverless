@@ -184,7 +184,7 @@ async fn search_mountains(
         });
     }
 
-    // offset, limit 値チェック
+    // offset 値チェック
     let mut offset_value = 0 as usize;
     if let Some(offset) = query_params.get("offset") {
         if let Ok(offset_temp) = offset.to_string().parse::<usize>() {
@@ -194,6 +194,7 @@ async fn search_mountains(
         }
     }
 
+    // limit 値チェック
     let mut limit_value: Option<usize> = None;
     if let Some(limit) = query_params.get("limit") {
         if let Ok(limit_temp) = limit.to_string().parse::<usize>() {
@@ -220,7 +221,7 @@ async fn search_mountains(
             "name.desc",
         ];
         for key in chk_keys {
-            let s_key = sort.to_string();
+            let s_key = sort.to_lowercase();
             if s_key == key.to_string() {
                 sort_key = s_key;
                 is_invalid_sort_value = false;
