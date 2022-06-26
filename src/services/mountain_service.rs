@@ -34,7 +34,11 @@ pub struct SearchedMountainResult {
     pub limit: Option<usize>,
 }
 
-pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition, sort_key: &String) -> Result<SearchedMountainResult, ()> {
+pub async fn get_all_mountains(
+    client: &Client,
+    range_condition: RangeCondition,
+    sort_key: &String,
+) -> Result<SearchedMountainResult, ()> {
     let command = ScanCommand {
         table: "Mountains".to_string(),
     };
@@ -87,15 +91,13 @@ pub async fn get_all_mountains(client: &Client, range_condition: RangeCondition,
 
             // offset, limitによる絞り込み
             match refine_mountains(&mountains, range_condition) {
-                Ok(refined_mountain_result) => {
-                    Ok(SearchedMountainResult {
-                        mountains: refined_mountain_result.mountains,
-                        total: refined_mountain_result.total,
-                        offset: refined_mountain_result.offset,
-                        limit: refined_mountain_result.limit,
-                    })
-                }
-                Err(_) => Err(())
+                Ok(refined_mountain_result) => Ok(SearchedMountainResult {
+                    mountains: refined_mountain_result.mountains,
+                    total: refined_mountain_result.total,
+                    offset: refined_mountain_result.offset,
+                    limit: refined_mountain_result.limit,
+                }),
+                Err(_) => Err(()),
             }
         }
         Err(_) => Err(()),
@@ -123,14 +125,13 @@ pub async fn search_mountains(
     client: &Client,
     search_conditions: Vec<SearchCondition>,
     range_condition: RangeCondition,
-    sort_key: &String
+    sort_key: &String,
 ) -> Result<SearchedMountainResult, ()> {
     // 各検索結果を格納する
     let mut pref_searched_list: Vec<String> = Vec::new();
     let mut tag_searched_list: Vec<String> = Vec::new();
     let mut name_searched_list: Vec<String> = Vec::new();
     let mut kana_searched_list: Vec<String> = Vec::new();
-
 
     for condition in search_conditions {
         let command = QueryCommand {
@@ -199,8 +200,7 @@ pub async fn search_mountains(
                                         kana_searched_list.push(id);
                                     }
                                 }
-                            }
-                            else {
+                            } else {
                                 let id = get_value(&item, &key, ValueType::Number);
                                 kana_searched_list.push(id);
                             }
@@ -212,7 +212,7 @@ pub async fn search_mountains(
                     }
                     Err(_) => {}
                 }
-            },
+            }
         }
     }
 
@@ -259,15 +259,13 @@ pub async fn search_mountains(
 
     // offset, limitによる絞り込み
     match refine_mountains(&mountains, range_condition) {
-        Ok(refined_mountain_result) => {
-            Ok(SearchedMountainResult {
-                mountains: refined_mountain_result.mountains,
-                total: refined_mountain_result.total,
-                offset: refined_mountain_result.offset,
-                limit: refined_mountain_result.limit,
-            })
-        }
-        Err(_) => Err(())
+        Ok(refined_mountain_result) => Ok(SearchedMountainResult {
+            mountains: refined_mountain_result.mountains,
+            total: refined_mountain_result.total,
+            offset: refined_mountain_result.offset,
+            limit: refined_mountain_result.limit,
+        }),
+        Err(_) => Err(()),
     }
 }
 
@@ -290,7 +288,10 @@ struct RefinedMountainResult {
     limit: Option<usize>,
 }
 
-fn refine_mountains(mountains: &Vec<Mountain>, range_condition: RangeCondition) -> Result<RefinedMountainResult, String> {
+fn refine_mountains(
+    mountains: &Vec<Mountain>,
+    range_condition: RangeCondition,
+) -> Result<RefinedMountainResult, String> {
     let range_from = range_condition.offset;
     let mut range_to = mountains.len() as usize;
     match range_condition.limit {
@@ -298,7 +299,7 @@ fn refine_mountains(mountains: &Vec<Mountain>, range_condition: RangeCondition) 
             if range_to > range_condition_limit + range_from {
                 range_to = range_condition_limit + range_from;
             }
-        },
+        }
         None => {}
     }
 
@@ -318,10 +319,10 @@ fn sort_mountains(mountains: &mut Vec<Mountain>, sort_key: &String) {
     match sort_key.as_str() {
         "id.asc" => {
             mountains.sort_by(|a, b| a.id.cmp(&b.id));
-        },
+        }
         "id.desc" => {
             mountains.sort_by(|a, b| b.id.cmp(&a.id));
-        },
+        }
         "elevation.asc" => {
             mountains.sort_by(|a, b| a.elevation.cmp(&b.elevation));
         }

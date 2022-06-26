@@ -8,7 +8,7 @@ use mountix_serverless::models::{
     PrefectureBaseMapper, PrefectureMapper, TagBaseMapper, TagMapper,
 };
 use mountix_serverless::services;
-use mountix_serverless::services::{SearchCondition, SearchType, RangeCondition};
+use mountix_serverless::services::{RangeCondition, SearchCondition, SearchType};
 use serde::{Deserialize, Serialize};
 
 type Error = Box<dyn std::error::Error + Send + Sync + 'static>;
@@ -211,7 +211,14 @@ async fn search_mountains(
     let mut sort_key = "id".to_string();
     if let Some(sort) = query_params.get("sort") {
         let mut is_invalid_sort_value = true;
-        let chk_keys = ["id.asc", "id.desc", "elevation.asc", "elevation.desc", "name.asc", "name.desc"];
+        let chk_keys = [
+            "id.asc",
+            "id.desc",
+            "elevation.asc",
+            "elevation.desc",
+            "name.asc",
+            "name.desc",
+        ];
         for key in chk_keys {
             let s_key = sort.to_string();
             if s_key == key.to_string() {
@@ -229,7 +236,7 @@ async fn search_mountains(
     }
 
     // offset and limit
-    let range_condition =  RangeCondition {
+    let range_condition = RangeCondition {
         offset: offset_value,
         limit: limit_value,
     };
@@ -255,17 +262,15 @@ async fn search_mountains(
     match services::search_mountains(&client, search_conditions, range_condition, &sort_key).await {
         Ok(searched_mountain_result) => {
             match serde_json::to_string_pretty(&searched_mountain_result.mountains) {
-                Ok(result) => {
-                    Ok(SearchedResult {
-                        mountains_json: result,
-                        total: searched_mountain_result.total,
-                        offset: searched_mountain_result.offset,
-                        limit: searched_mountain_result.limit,
-                    })
-                },
+                Ok(result) => Ok(SearchedResult {
+                    mountains_json: result,
+                    total: searched_mountain_result.total,
+                    offset: searched_mountain_result.offset,
+                    limit: searched_mountain_result.limit,
+                }),
                 Err(_) => Err(simple_err_message_list),
             }
-        },
+        }
         Err(_) => Err(simple_err_message_list),
     }
 }
