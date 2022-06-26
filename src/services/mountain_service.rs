@@ -242,7 +242,7 @@ pub async fn search_mountains(
 fn merge_result(base_list: &mut Vec<String>, target_list: &Vec<String>) {
     if base_list.len() > 0 {
         let mut delete_list: Vec<usize> = Vec::new();
-        for index in 0..base_list.len() - 1 {
+        for index in 0..base_list.len() {
             let mut is_duplicated = false;
             for target_id in target_list {
                 let base_id = &base_list[index];
