@@ -127,11 +127,8 @@ pub async fn search_mountains(
     range_condition: RangeCondition,
     sort_key: &String,
 ) -> Result<SearchedMountainResult, ()> {
-    // 各検索結果を格納する
-    let mut pref_searched_list: Vec<String> = Vec::new();
-    let mut tag_searched_list: Vec<String> = Vec::new();
-    let mut name_searched_list: Vec<String> = Vec::new();
-    let mut kana_searched_list: Vec<String> = Vec::new();
+    // 検索結果を格納する
+    let mut searched_list: Vec<String> = Vec::new();
 
     for condition in search_conditions {
         let command = QueryCommand {
@@ -162,30 +159,27 @@ pub async fn search_mountains(
         let key = String::from("Id");
 
         match condition.search_type {
-            SearchType::Prefecture => match query_index(client, command).await {
+            SearchType::Prefecture | SearchType::Tag => match query_index(client, command).await {
                 Ok(response) => {
+                    let mut temp_result: Vec<String> = Vec::new();
                     for item in response {
                         let id = get_value(&item, &key, ValueType::Number);
-                        pref_searched_list.push(id);
+                        temp_result.push(id);
                     }
-                }
-                Err(_) => {}
-            },
-            SearchType::Tag => match query_index(client, command).await {
-                Ok(response) => {
-                    for item in response {
-                        let id = get_value(&item, &key, ValueType::Number);
-                        tag_searched_list.push(id);
-                    }
+
+                    merge_result(&mut searched_list, &temp_result);
                 }
                 Err(_) => {}
             },
             SearchType::Name => {
+                let mut temp_name_result: Vec<String> = Vec::new();
+                let mut temp_kana_result: Vec<String> = Vec::new();
+
                 match query_index_filter(client, filter_command).await {
                     Ok(response) => {
                         for item in response {
                             let id = get_value(&item, &key, ValueType::Number);
-                            name_searched_list.push(id);
+                            temp_name_result.push(id);
                         }
                     }
                     Err(_) => {}
@@ -193,53 +187,29 @@ pub async fn search_mountains(
                 match query_index_filter(client, filter_kana_command).await {
                     Ok(response) => {
                         for item in response {
-                            if name_searched_list.len() > 0 {
-                                for n in &name_searched_list {
+                            if temp_name_result.len() > 0 {
+                                for n in &temp_name_result {
                                     let id = get_value(&item, &key, ValueType::Number);
                                     if id != n.to_string() {
-                                        kana_searched_list.push(id);
+                                        temp_kana_result.push(id);
                                     }
                                 }
                             } else {
                                 let id = get_value(&item, &key, ValueType::Number);
-                                kana_searched_list.push(id);
+                                temp_kana_result.push(id);
                             }
                         }
 
-                        for k in &kana_searched_list {
-                            name_searched_list.push(k.to_string());
+                        for k in &temp_kana_result {
+                            temp_name_result.push(k.to_string());
                         }
                     }
                     Err(_) => {}
                 }
-            }
-        }
-    }
 
-    // 各検索結果から重複する結果のみを取得する
-    let mut searched_list: Vec<String> = Vec::new();
-    if pref_searched_list.len() > 0 && tag_searched_list.len() > 0 && name_searched_list.len() > 0 {
-        for pref_searched_id in &pref_searched_list {
-            for tag_searched_id in &tag_searched_list {
-                for name_searched_id in &name_searched_list {
-                    if pref_searched_id == tag_searched_id && pref_searched_id == name_searched_id {
-                        searched_list.push(pref_searched_id.to_string());
-                    }
-                }
+                merge_result(&mut searched_list, &temp_name_result);
             }
         }
-    } else if pref_searched_list.len() > 0 && tag_searched_list.len() > 0 {
-        searched_list = get_duplication_list(&pref_searched_list, &tag_searched_list);
-    } else if pref_searched_list.len() > 0 && name_searched_list.len() > 0 {
-        searched_list = get_duplication_list(&pref_searched_list, &name_searched_list);
-    } else if tag_searched_list.len() > 0 && name_searched_list.len() > 0 {
-        searched_list = get_duplication_list(&tag_searched_list, &name_searched_list);
-    } else if pref_searched_list.len() > 0 {
-        searched_list = pref_searched_list;
-    } else if tag_searched_list.len() > 0 {
-        searched_list = tag_searched_list;
-    } else if name_searched_list.len() > 0 {
-        searched_list = name_searched_list;
     }
 
     let mut mountains: Vec<Mountain> = Vec::new();
@@ -269,16 +239,32 @@ pub async fn search_mountains(
     }
 }
 
-fn get_duplication_list(a: &Vec<String>, b: &Vec<String>) -> Vec<String> {
-    let mut result_list: Vec<String> = Vec::new();
-    for a_id in a {
-        for b_id in b {
-            if a_id == b_id {
-                result_list.push(a_id.to_string());
+fn merge_result(base_list: &mut Vec<String>, target_list: &Vec<String>) {
+    if base_list.len() > 0 {
+        let mut delete_list: Vec<usize> = Vec::new();
+        for index in 0..base_list.len() - 1 {
+            let mut is_duplicated = false;
+            for target_id in target_list {
+                let base_id = &base_list[index];
+                if base_id == target_id {
+                    is_duplicated = true;
+                }
+            }
+            if !is_duplicated {
+                delete_list.push(index);
             }
         }
+
+        let mut remove_count = 0 as usize;
+        for index in delete_list {
+            base_list.remove(index - remove_count);
+            remove_count += 1;
+        }
+    } else {
+        for target_id in target_list {
+            base_list.push(target_id.to_string());
+        }
     }
-    result_list
 }
 
 struct RefinedMountainResult {
