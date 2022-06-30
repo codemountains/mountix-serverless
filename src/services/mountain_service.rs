@@ -173,7 +173,6 @@ pub async fn search_mountains(
             },
             SearchType::Name => {
                 let mut temp_name_result: Vec<String> = Vec::new();
-                let mut temp_kana_result: Vec<String> = Vec::new();
 
                 match query_index_filter(client, filter_command).await {
                     Ok(response) => {
@@ -187,26 +186,15 @@ pub async fn search_mountains(
                 match query_index_filter(client, filter_kana_command).await {
                     Ok(response) => {
                         for item in response {
-                            if temp_name_result.len() > 0 {
-                                for n in &temp_name_result {
-                                    let id = get_value(&item, &key, ValueType::Number);
-                                    if id != n.to_string() {
-                                        temp_kana_result.push(id);
-                                    }
-                                }
-                            } else {
-                                let id = get_value(&item, &key, ValueType::Number);
-                                temp_kana_result.push(id);
-                            }
-                        }
-
-                        for k in &temp_kana_result {
-                            temp_name_result.push(k.to_string());
+                            let id = get_value(&item, &key, ValueType::Number);
+                            temp_name_result.push(id);
                         }
                     }
                     Err(_) => {}
                 }
 
+                temp_name_result.sort();
+                temp_name_result.dedup();
                 merge_result(&mut searched_list, &temp_name_result);
             }
         }
